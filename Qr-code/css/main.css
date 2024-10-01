@@ -1,0 +1,79 @@
+@import url(https://fonts.googleapis.com/css?family=Manrope:200,300,regular,500,600,700,800);
+
+html,
+body {
+	min-height: 100vh;
+}
+
+body {
+	display: flex;
+	flex-direction: column;
+	align-items: center;
+	justify-content: center;
+	gap: 30px;
+
+	font-family: 'Manrope', sans-serif;
+	background: linear-gradient(122deg, #b6e2ff -7.31%, #0575e6 108.47%),
+		#474747;
+}
+
+.title {
+	color: #fff;
+	font-size: 42px;
+	font-weight: 700;
+}
+
+.card {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+
+	padding: 20px;
+	width: 338px;
+	border-radius: 10px;
+	background: #fff;
+	box-shadow: 0px 4px 20px 0px rgba(0, 0, 0, 0.25);
+}
+
+.card-title {
+	color: #03acac;
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.input {
+	padding: 8px 10px 10px;
+	height: 40px;
+	border-radius: 6px;
+	border: 2px solid #3e3e3e;
+	background: #fff;
+	display: block;
+	width: 100%;
+}
+
+.btn {
+    width: 100%;
+    text-align: center;
+	height: 40px;
+	border-radius: 6px;
+	background: #000;
+
+	color: #fff;
+	font-size: 18px;
+	font-weight: 700;
+}
+
+.card-qr {
+    margin-top: 10px;
+    width: 160px;
+    height: 0;
+    overflow: hidden;
+
+    background-color: #03acac;
+    transition: all 0.2s ease-in;
+}
+
+.card-qr.open {
+    height: 160px;
+}

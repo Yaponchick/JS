@@ -1,53 +1,24 @@
 
-import React, { useState, FormEvent, useRef } from 'react';
+import React, { useState } from 'react';
 
-const QRGenerator: React.FC = () => {
-  const [qrCodeUrl, setQrCodeUrl] = useState<string>('');
-  const [isOpen, setIsOpen] = useState<boolean>(false);
-  const inputRef = useRef<HTMLInputElement>(null);
-  const cardQrRef = useRef<HTMLDivElement>(null);
+const AutoQRGenerator: React.FC = () => {
+  // 🔽 Твоя заранее заданная ссылка
+  const defaultUrl = 'https://example.com';
 
-  const handleSubmit = (e: FormEvent) => {
-    e.preventDefault();
-    const inputValue = inputRef.current?.value.trim();
-
-    if (!inputValue) return;
-
-    // Сброс состояния
-    setIsOpen(false);
-    setQrCodeUrl('');
-
-    // Генерация URL для QR-кода
-    const apiQrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(inputValue)}`;
-    setQrCodeUrl(apiQrUrl);
-
-    // Через небольшую задержку показываем блок (чтобы избежать мерцания)
-    setTimeout(() => {
-      setIsOpen(true);
-    }, 10);
-  };
+  // Генерируем URL для QR-кода
+  const [qrCodeUrl] = useState<string>(
+    `https://api.qrserver.com/v1/create-qr-code/?size=160x160&data=${encodeURIComponent(defaultUrl)}`
+  );
 
   return (
-    <div>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          ref={inputRef}
-          placeholder="Введите текст или ссылку"
-          required
-        />
-        <button type="submit">Сгенерировать QR-код</button>
-      </form>
-
-      <div
-        ref={cardQrRef}
-        className={`card-qr ${isOpen ? 'open' : ''}`}
-        style={{ marginTop: '20px', textAlign: 'center' }}
-      >
-        {qrCodeUrl && <img src={qrCodeUrl} alt="QR Code" />}
+    <div style={{ textAlign: 'center', marginTop: '40px', fontFamily: 'Arial' }}>
+      <h2>Ваш QR-код</h2>
+      <p>Ссылка: <code>{defaultUrl}</code></p>
+      <div style={{ marginTop: '20px' }}>
+        <img src={qrCodeUrl} alt="QR Code" style={{ border: '1px solid #ddd', padding: '8px' }} />
       </div>
     </div>
   );
 };
 
-export default QRGenerator;
+export default AutoQRGenerator;

@@ -1,310 +1,215 @@
-import React, { createContext, useState, useEffect, ReactNode } from 'react';
+import React, { useState, useEffect } from 'react';
+import './Link.css';
+import Copy from './../../img/copy.png';
+import Arrow from './../../img/Arrow.png';
+import QrIcon from './../../img/QrIcon.png';
+import { Link, useLocation } from 'react-router-dom';
 
-// 🔹 Определяем тип для контекста
-interface AuthContextType {
-  isLoggedIn: boolean;
-  login: () => void;
-  logout: () => void;
+// Тип для location.state
+interface LocationState {
+    link: string;
 }
 
-// 🔹 Указываем тип для Provider (children)
-interface AuthProviderProps {
-  children: ReactNode;
+// Тип для состояния всплывающего окна (popup)
+interface PopupState {
+    visible: boolean;
+    text: string;
+    x: number;
+    y: number;
 }
 
-// 🔹 Создаём контекст с типом (и значением по умолчанию — null или пустой объект)
-export const AuthContext = createContext<AuthContextType | null>(null);
+const LinkQuestionnairePage: React.FC = () => {
+    const [link, setLink] = useState<string>('');
+    const [popup, setPopup] = useState<PopupState>({ visible: false, text: '', x: 0, y: 0 });
+    const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
+    const [isModalVisible, setIsModalVisible] = useState<boolean>(false); // Для анимации
 
-// 🔹 Компонент AuthProvider с типизацией
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
-  const [isLoggedIn, setIsLoggedIn] = useState<boolean>(false);
+    const location = useLocation();
+    const stateLink = (location.state as LocationState | null)?.link;
 
-  // Проверка токена при загрузке
-  useEffect(() => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      setIsLoggedIn(true);
+    useEffect(() => {
+        if (stateLink) {
+            setLink(stateLink);
+        }
+    }, [stateLink]);
+
+    useEffect(() => {
+        if (isModalOpen) {
+            setIsModalVisible(true);
+        } else {
+            setIsModalVisible(false);
+        }
+    }, [isModalOpen]);
+
+    const showPopup = (text: string, event: React.MouseEvent | null): void => {
+        const xPos = event ? event.clientX : window.innerWidth / 2;
+        const yPos = event ? event.clientY : window.innerHeight / 2;
+        setPopup({ visible: true, text, x: xPos, y: yPos });
+        setTimeout(() => {
+            setPopup((prev) => ({ ...prev, visible: false }));
+        }, 1800);
+    };
+
+    const handleCopy = (event: React.MouseEvent): void => {
+        if (!link) return;
+        navigator.clipboard
+            .writeText(link)
+            .then(() => {
+                showPopup('Ссылка скопирована!', event);
+            })
+            .catch((err: unknown) => {
+                console.error('Ошибка копирования ссылки:', err);
+                showPopup('Ошибка копирования', event);
+            });
+    };
+
+    const handleDownloadQR = async (): Promise<void> => {
+        if (!link) {
+            console.error('Ссылка не найдена.');
+            return;
+        }
+
+        try {
+            const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+
+            const response = await fetch(qrUrl);
+            if (!response.ok) {
+                throw new Error(`Ошибка при загрузке QR-кода: ${response.status}`);
+            }
+
+            const blob = await response.blob();
+
+            const linkElement = document.createElement('a');
+            linkElement.href = URL.createObjectURL(blob);
+            linkElement.download = 'QR-code.png';
+            document.body.appendChild(linkElement);
+            linkElement.click();
+            document.body.removeChild(linkElement);
+            URL.revokeObjectURL(linkElement.href);
+        } catch (error) {
+            console.error('Ошибка при скачивании QR-кода:', error);
+        }
+    };
+
+    const handleCopyQR = async (event: React.MouseEvent): Promise<void> => {
+        if (!link) return;
+
+        const qrUrl = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${encodeURIComponent(link)}`;
+
+        try {
+            const response = await fetch(qrUrl);
+            if (!response.ok) throw new Error('Не удалось получить QR-код');
+            const blob = await response.blob();
+
+            if (
+                navigator.clipboard &&
+                typeof ClipboardItem !== 'undefined' &&
+                'supports' in ClipboardItem &&
+                ClipboardItem.supports('image/png')
+            ) {
+                const item = new ClipboardItem({ 'image/png': blob });
+                await navigator.clipboard.write([item]);
+                showPopup('QR скопирован!', null);
+            } else {
+                console.warn('Копирование изображений в буфер обмена не поддерживается или требует HTTPS.');
+                showPopup('Копирование QR не поддерживается', null);
+                await handleDownloadQR();
+            }
+        } catch (error) {
+            console.error('Ошибка при копировании QR-кода:', error);
+            showPopup('Ошибка копирования QR', null);
+        }
+    };
+
+    const closeModal = (): void => {
+        setIsModalVisible(false);
+        setTimeout(() => {
+            setIsModalOpen(false);
+        }, 300);
+    };
+
+    // Проверка на наличие ссылки
+    if (!link && !stateLink) {
+        return <div>Ошибка: ссылка не найдена.</div>;
     }
-  }, []);
 
-  const login = () => {
-    setIsLoggedIn(true);
-  };
+    return (
+        <div className="page-container">
+            <div className="survey-pageLink">
+                <div className="You">Ваша анкета создана!</div>
+                <div className="survey-titleLink">
+                    <span className="link-text">{link || stateLink}</span>
+                    <div className="button-group">
+                        <img
+                            src={QrIcon}
+                            alt="Показать QR-код"
+                            title="Показать QR-код"
+                            className="QRButton icon-button"
+                            onClick={() => setIsModalOpen(true)}
+                        />
+                        <img
+                            src={Copy}
+                            alt="Копировать ссылку"
+                            title="Копировать ссылку"
+                            className="Copy icon-button"
+                            onClick={handleCopy}
+                        />
+                    </div>
+                </div>
 
-  const logout = () => {
-    localStorage.removeItem('access_token');
-    localStorage.removeItem('refresh_token');
-    setIsLoggedIn(false);
-  };
+                {isModalOpen && (
+                    <div
+                        className={`modal-overlay-link ${isModalVisible ? 'visible' : ''}`}
+                        onClick={closeModal}
+                    >
+                        <div
+                            className={`modal-content-qr ${isModalVisible ? 'visible' : ''}`}
+                            onClick={(e) => e.stopPropagation()}
+                        >
+                            <span className="close-modal" onClick={closeModal}>
+                                ×
+                            </span>
+                            <h3>QR-код для вашей анкеты</h3>
+                            <div className="qr-image-wrapper">
+                                <img
+                                    src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(
+                                        link || stateLink
+                                    )}`}
+                                    alt="QR Code"
+                                    className="qr-image"
+                                />
+                            </div>
+                            <div className="qr-actions">
+                                <button className="qr-btn download-btn" onClick={handleDownloadQR}>
+                                    Скачать QR
+                                </button>
+                                <button className="qr-btn copy-btn" onClick={handleCopyQR}>
+                                    Копировать QR
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
 
-  // 🔹 Проверка: не забыть передать значение в Provider
-  const value: AuthContextType = {
-    isLoggedIn,
-    login,
-    logout,
-  };
+                <Link to="/Account" className="HomeLink-wrapper">
+                    <div className="HomeLink">
+                        <span>Личный кабинет</span>
+                        <img src={Arrow} alt="Перейти в личный кабинет" className="Arrow" />
+                    </div>
+                </Link>
 
-  return (
-    <AuthContext.Provider value={value}>
-      {children}
-    </AuthContext.Provider>
-  );
-};
-
-
-
-
-
-
-
-
-
-
-################^^^**++
-
-
-
-import axios, { AxiosInstance, AxiosResponse, AxiosError } from 'axios';
-
-// 🔹 Интерфейсы
-
-interface Questionnaire {
-  id: number;
-  title: string;
-  createdAt: string;
-  isPublished: boolean;
-}
-
-interface UserProfile {
-  username: string;
-  email: string;
-  // Добавь другие поля по необходимости
-}
-
-interface QuestionData {
-  text: string;
-  type: 'Открытый' | 'Закрытый' | 'Множественный выбор' | 'Шкала';
-  answers?: { text: string }[];
-}
-
-interface CheckAvailabilityResponse {
-  isUsernameAvailable: boolean;
-  isEmailAvailable: boolean;
-}
-
-// 🔹 Создание экземпляра axios
-const apiClient: AxiosInstance = axios.create({
-  baseURL: 'https://localhost:7109',
-  headers: {
-    'Content-Type': 'application/json',
-  },
-  httpsAgent: new (require('https')).Agent({  
-    rejectUnauthorized: false // Только для dev (самоподписанные сертификаты)
-  })
-});
-
-// 🔹 Перехватчик запроса: добавляем токен
-apiClient.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem('access_token');
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => {
-    return Promise.reject(error);
-  }
-);
-
-// 🔹 Перехватчик ответа: обработка 401
-apiClient.interceptors.response.use(
-  (response: AxiosResponse) => response,
-  (error: AxiosError) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem('access_token');
-      localStorage.removeItem('refresh_token');
-      alert('Сессия истекла. Пожалуйста, войдите снова.');
-      // Можно перенаправить на страницу входа:
-      // window.location.href = '/login';
-    }
-    return Promise.reject(error);
-  }
-);
-
-// 🔹 Маппинг типа вопроса → ID
-const getQuestionTypeId = (type: string): number => {
-  switch (type) {
-    case 'Открытый':
-      return 1;
-    case 'Закрытый':
-      return 2;
-    case 'Множественный выбор':
-      return 3;
-    case 'Шкала':
-      return 4;
-    default:
-      throw new Error(`Неизвестный тип вопроса: ${type}`);
-  }
-};
-
-// 🔹 API-функции
-
-/**
- * Создание новой анкеты
- */
-export const createQuestionnaire = async (title: string): Promise<{ questionnaireId: number }> => {
-  try {
-    const response: AxiosResponse<{ questionnaireId: number }> = await apiClient.post('/questionnaire/create', {
-      Title: title,
-    });
-    return response.data;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при создании анкеты:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-/**
- * Добавление вопроса к анкете
- */
-export const addQuestion = async (
-  questionnaireId: number,
-  questionData: QuestionData
-): Promise<{ questionId: number }> => {
-  try {
-    const response: AxiosResponse<{ questionId: number }> = await apiClient.post(
-      `/questionnaire/${questionnaireId}/questions/add-question`,
-      {
-        Text: questionData.text,
-        QuestionType: getQuestionTypeId(questionData.type),
-        Options: questionData.answers?.map((a) => ({ OptionText: a.text })) || [],
-      }
+                {/* Всплывающее сообщение */}
+                {popup.visible && (
+                    <div
+                        className="copy-popup"
+                        style={{ top: popup.y - 20, left: popup.x - 10 }}
+                    >
+                        {popup.text}
+                    </div>
+                )}
+            </div>
+        </div>
     );
-    return response.data;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при добавлении вопроса:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
 };
 
-/**
- * Получение списка анкет пользователя
- */
-export const getUserSurveys = async (): Promise<Questionnaire[]> => {
-  try {
-    const response: AxiosResponse<{ questionnaires: Questionnaire[] }> = await apiClient.get('/user/questionnaires');
-    return response.data.questionnaires;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при получении списка анкет:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-/**
- * Удаление анкеты
- */
-export const deleteSurvey = async (questionnaireId: number): Promise<void> => {
-  try {
-    await apiClient.delete(`/questionnaire/${questionnaireId}`);
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при удалении анкеты:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-/**
- * Обновление названия анкеты
- */
-export const updateSurveyTitle = async (questionnaireId: number, newTitle: string): Promise<void> => {
-  try {
-    await apiClient.put(`/questionnaire/${questionnaireId}/title`, {
-      NewTitle: newTitle,
-    });
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при обновлении названия анкеты:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-/**
- * Изменение статуса публикации анкеты
- */
-export const updateSurveyStatus = async (questionnaireId: number, isPublished: boolean): Promise<void> => {
-  try {
-    await apiClient.put(`/questionnaire/${questionnaireId}/status`, {
-      IsPublished: isPublished,
-    });
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при изменении статуса анкеты:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-/**
- * Получение профиля пользователя
- */
-export const getUserProfile = async (): Promise<UserProfile> => {
-  try {
-    const response: AxiosResponse<UserProfile> = await apiClient.get('/user/profile');
-    return response.data;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при получении данных пользователя:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-/**
- * Проверка доступности username и email
- */
-export const checkUsernameAndEmail = async (username: string, email: string): Promise<boolean> => {
-  try {
-    const response: AxiosResponse<CheckAvailabilityResponse> = await apiClient.post('/user/check-availability', {
-      Username: username,
-      Email: email,
-    });
-
-    const { isUsernameAvailable, isEmailAvailable } = response.data;
-
-    if (!isUsernameAvailable) {
-      alert('Имя пользователя уже занято.');
-      return false;
-    }
-
-    if (!isEmailAvailable) {
-      alert('Электронная почта уже используется.');
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при проверке доступности:', axiosError.response?.data || axiosError.message);
-    alert('Не удалось проверить доступность данных.');
-    return false;
-  }
-};
-
-/**
- * Обновление профиля пользователя
- */
-export const updateUserProfile = async (userData: Partial<UserProfile>): Promise<UserProfile> => {
-  try {
-    const response: AxiosResponse<UserProfile> = await apiClient.put('/user/profile', userData);
-    return response.data;
-  } catch (error) {
-    const axiosError = error as AxiosError;
-    console.error('Ошибка при обновлении данных пользователя:', axiosError.response?.data || axiosError.message);
-    throw error;
-  }
-};
-
-export default apiClient;
-
+export default LinkQuestionnairePage;
